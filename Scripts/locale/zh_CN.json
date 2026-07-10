@@ -414,5 +414,6 @@
   "Emulate some offsets in your CMOS (RTC) memory": "模拟 CMOS (RTC) 内存中的某些偏移量",
   "8. Download Mirror": "8. 下载镜像",
   "Download Mirror": "下载镜像",
-  "None": "无"
+  "None": "无",
+  "Update source: {}/{} ({})": "更新来源：{}/{}（{}）"
 }

@@ -7,14 +7,73 @@ import os
 import tempfile
 import shutil
 
+
+PRESERVE_PATHS = {
+    "Scripts/i18n.py",
+    "Scripts/locale",
+    "Scripts/mirror.py",
+    ".mirror",
+    ".language",
+    "sha_version.txt",
+}
+
+
+def _detect_repo_info():
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    git_dir = os.path.join(script_dir, ".git")
+    if not os.path.exists(git_dir):
+        return None
+    try:
+        head_ref = os.path.join(git_dir, "HEAD")
+        if not os.path.exists(head_ref):
+            return None
+        with open(head_ref, "r") as f:
+            ref_line = f.read().strip()
+        branch = ref_line.split("refs/heads/")[-1] if "refs/heads/" in ref_line else "main"
+        config_path = os.path.join(git_dir, "config")
+        if not os.path.exists(config_path):
+            return None
+        with open(config_path, "r") as f:
+            config = f.read()
+        for line in config.splitlines():
+            if "url = " in line:
+                url = line.split("url = ")[1].strip()
+                if "github.com" in url:
+                    parts = url.rstrip(".git").split("github.com/")[-1].split("/")
+                    if len(parts) >= 2:
+                        return {
+                            "owner": parts[0],
+                            "repo": parts[1],
+                            "branch": branch,
+                        }
+    except:
+        pass
+    return None
+
+
 class Updater:
     def __init__(self):
         self.github = github.Github()
         self.fetcher = resource_fetcher.ResourceFetcher()
         self.run = run.Run().run
         self.utils = utils.Utils()
-        self.sha_version = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sha_version.txt")
-        self.download_repo_url = "https://github.com/lzhoang2801/OpCore-Simplify/archive/refs/heads/main.zip"
+        self.script_dir = os.path.dirname(os.path.realpath(__file__))
+        self.sha_version = os.path.join(self.script_dir, "sha_version.txt")
+
+        repo_info = _detect_repo_info()
+        if repo_info:
+            self.repo_owner = repo_info["owner"]
+            self.repo_name = repo_info["repo"]
+            self.repo_branch = repo_info["branch"]
+            self.update_base_url = "https://github.com/{}/{}/archive/refs/heads/{}.zip".format(
+                self.repo_owner, self.repo_name, self.repo_branch
+            )
+        else:
+            self.repo_owner = "lzhoang2801"
+            self.repo_name = "OpCore-Simplify"
+            self.repo_branch = "main"
+            self.update_base_url = "https://github.com/lzhoang2801/OpCore-Simplify/archive/refs/heads/main.zip"
+
         self.temporary_dir = tempfile.mkdtemp()
         self.current_step = 0
 
@@ -35,7 +94,7 @@ class Updater:
     def get_latest_sha_version(self):
         print(_("Fetching latest version from GitHub..."))
         try:
-            commits = self.github.get_commits("lzhoang2801", "OpCore-Simplify")
+            commits = self.github.get_commits(self.repo_owner, self.repo_name, branch=self.repo_branch)
             return commits["commitGroups"][0]["commits"][0]["oid"]
         except Exception as e:
             print(_("Error fetching latest SHA version: {}").format(str(e)))
@@ -53,8 +112,8 @@ class Updater:
             self.current_step += 1
             print(_("Step {}: Downloading update package...").format(self.current_step))
             print("  ", end="")
-            file_path = os.path.join(self.temporary_dir, os.path.basename(self.download_repo_url))
-            self.fetcher.download_and_save_file(self.download_repo_url, file_path)
+            file_path = os.path.join(self.temporary_dir, os.path.basename(self.update_base_url))
+            self.fetcher.download_and_save_file(self.update_base_url, file_path)
             
             if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
                 print(_("  Update package downloaded ({:.1f} KB)").format(os.path.getsize(file_path)/1024))
@@ -75,47 +134,51 @@ class Updater:
         self.current_step += 1
         print(_("Step {}: Updating files...").format(self.current_step))
         try:
-            target_dir = os.path.join(self.temporary_dir, "OpCore-Simplify-main")
+            repo_dir_name = "{}-{}".format(self.repo_name, self.repo_branch)
+            target_dir = os.path.join(self.temporary_dir, repo_dir_name)
             if not os.path.exists(target_dir):
-                target_dir = os.path.join(self.temporary_dir, "main", "OpCore-Simplify-main")
+                target_dir = os.path.join(self.temporary_dir, self.repo_branch, repo_dir_name)
                 
             if not os.path.exists(target_dir):
                 print(_("  Could not locate extracted files directory"))
                 return False
-                
+
             file_paths = self.utils.find_matching_paths(target_dir, type_filter="file")
-            
+
             total_files = len(file_paths)
             print(_("  Found {} files to update").format(total_files))
-            
+
             updated_count = 0
             for index, (path, type) in enumerate(file_paths, start=1):
+                if path in PRESERVE_PATHS or any(path.startswith(p + "/") for p in PRESERVE_PATHS if not p.endswith(".py")):
+                    continue
+
                 source = os.path.join(target_dir, path)
-                destination = source.replace(target_dir, os.path.dirname(os.path.realpath(__file__)))
-                
+                destination = os.path.join(self.script_dir, path)
+
                 self.utils.create_folder(os.path.dirname(destination))
-                
+
                 print(_("    Updating [{}/{}]: {}").format(index, total_files, os.path.basename(path)), end="\r")
-                
+
                 try:
                     shutil.move(source, destination)
                     updated_count += 1
-                    
+
                     if ".command"  in os.path.splitext(path)[-1] and os.name != "nt":
                         self.run({
                             "args": ["chmod", "+x", destination]
                         })
                 except Exception as e:
                     print(_("      Failed to update {}: {}").format(path, str(e)))
-            
+
             print("")
             print(_("  Successfully updated {}/{} files").format(updated_count, total_files))
-            
+
             self.current_step += 1
             print(_("Step {}: Cleaning up temporary files...").format(self.current_step))
-            shutil.rmtree(self.temporary_dir)
+            shutil.rmtree(self.temporary_dir, ignore_errors=True)
             print(_("  Cleanup complete"))
-            
+
             return True
         except Exception as e:
             print(_("  Error during file update: {}").format(str(e)))
@@ -133,6 +196,8 @@ class Updater:
 
     def run_update(self):
         self.utils.head(_("Check for Updates"))
+        print("")
+        print(_("Update source: {}/{} ({})").format(self.repo_owner, self.repo_name, self.repo_branch))
         print("")
         
         current_sha_version = self.get_current_sha_version()
