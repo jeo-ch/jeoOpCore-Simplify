@@ -42,17 +42,20 @@ class OCPE:
         while True:
             self.u.head(_("Select hardware report"))
             print("")
-            if os.name == "nt":
+            is_mac = sys.platform == "darwin"
+            is_win = os.name == "nt"
+            if is_win:
                 print("\033[1;93m" + _("Note:") + "\033[0m")
                 print(_("- Ensure you are using the latest version of Hardware Sniffer before generating the hardware report."))
                 print(_("- Hardware Sniffer will not collect information related to Resizable BAR option of GPU (disabled by default) and monitor connections in Windows PE."))
                 print("")
+            if is_win or is_mac:
                 print(_("E. Export hardware report (Recommended)"))
                 print("")
             print(_("Q. Quit"))
             print("")
         
-            user_input = self.u.request_input(_("Drag and drop your hardware report here (.JSON){}: ").format(_(" or type \"E\" to export") if os.name == "nt" else ""))
+            user_input = self.u.request_input(_("Drag and drop your hardware report here (.JSON){}: ").format(_(" or type \"E\" to export") if (is_win or is_mac) else ""))
             if user_input.lower() == "q":
                 self.u.exit_program()
             if user_input.lower() == "e":

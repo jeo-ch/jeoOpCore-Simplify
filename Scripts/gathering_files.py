@@ -300,9 +300,19 @@ class gatheringFiles:
             return []
         
     def gather_hardware_sniffer(self):
-        if os_name != "Windows":
-            return
+        if os_name == "Windows":
+            return self._gather_hardware_sniffer_windows()
+        elif os_name == "Darwin":
+            return self._gather_hardware_sniffer_mac()
+        return
 
+    def _gather_hardware_sniffer_mac(self):
+        sniffer_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hardware_sniffer_mac.py")
+        if os.path.exists(sniffer_path):
+            return sniffer_path
+        return
+
+    def _gather_hardware_sniffer_windows(self):
         self.utils.head(_("Gathering Hardware Sniffer"))
 
         PRODUCT_NAME = "Hardware-Sniffer-CLI.exe"
