@@ -4,6 +4,7 @@ from Scripts.datasets import os_data
 from Scripts import gathering_files
 from Scripts import run
 from Scripts import utils
+from Scripts.i18n import _
 import os
 import uuid
 import random
@@ -36,7 +37,7 @@ class SMBIOS:
                 return macserial_path
 
         if retry_count >= max_retries:
-            raise Exception("Failed to find macserial after {} attempts".format(max_retries))
+            raise Exception(_("Failed to find macserial after {} attempts").format(max_retries))
         
         current_history = self.utils.read_file(self.g.download_history_file)
 
@@ -171,9 +172,9 @@ class SMBIOS:
             contents = []
             contents.append("")
             if show_all_models:
-                contents.append("List of available SMBIOS:")
+                contents.append(_("List of available SMBIOS:"))
             else:
-                contents.append("List of compatible SMBIOS:")
+                contents.append(_("List of compatible SMBIOS:"))
             for index, device in enumerate(mac_devices, start=1):
                 isSupported = self.utils.parse_darwin_version(device.initial_support) <= self.utils.parse_darwin_version(macos_version) <= self.utils.parse_darwin_version(device.last_supported_version)
                 if device.name not in (default_smbios_model, selected_smbios_model) and not show_all_models and (not isSupported or (is_laptop and not device.name.startswith("MacBook")) or (not is_laptop and device.name.startswith("MacBook"))):
@@ -187,7 +188,7 @@ class SMBIOS:
                     category += char
                 if category != current_category:
                     current_category = category
-                    category_header = "Category: {}".format(current_category if current_category else "Uncategorized")
+                    category_header = _("Category: {}").format(current_category if current_category else _("Uncategorized"))
                     contents.append(f"\n{category_header}\n" + "=" * len(category_header))
                 checkbox = "[*]" if device.name == selected_smbios_model else "[ ]"
                 
@@ -198,25 +199,25 @@ class SMBIOS:
                     line = "\033[90m{}\033[0m".format(line)
                 contents.append(line)
             contents.append("")
-            contents.append("\033[1;93mNote:\033[0m")
-            contents.append("- Lines in gray indicate mac models that are not officially supported by {}.".format(os_data.get_macos_name_by_darwin(macos_version)))
+            contents.append("\033[1;93m" + _("Note:") + "\033[0m")
+            contents.append(_("- Lines in gray indicate mac models that are not officially supported by {}.").format(os_data.get_macos_name_by_darwin(macos_version)))
             contents.append("")
             if not show_all_models:
-                contents.append("A. Show all models")
+                contents.append(_("A. Show all models"))
             else:
-                contents.append("C. Show compatible models only")
+                contents.append(_("C. Show compatible models only"))
             if selected_smbios_model != default_smbios_model:
-                contents.append("R. Restore default SMBIOS model ({})".format(default_smbios_model))
+                contents.append(_("R. Restore default SMBIOS model ({})").format(default_smbios_model))
             contents.append("")
-            contents.append("B. Back")
-            contents.append("Q. Quit")
+            contents.append(_("B. Back"))
+            contents.append(_("Q. Quit"))
             contents.append("")
             content = "\n".join(contents)
 
             self.utils.adjust_window_size(content)
-            self.utils.head("Customize SMBIOS Model", resize=False)
+            self.utils.head(_("Customize SMBIOS Model"), resize=False)
             print(content)
-            option = self.utils.request_input("Select your option: ")
+            option = self.utils.request_input(_("Select your option: "))
             if option.lower() == "q":
                 self.utils.exit_program()
             if option.lower() == "b":

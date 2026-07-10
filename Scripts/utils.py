@@ -9,10 +9,26 @@ import subprocess
 import pathlib
 import zipfile
 import tempfile
+from Scripts.i18n import _, detect_system_language, set_language, get_language, get_available_languages
+from Scripts.mirror import get_available_mirrors, get_mirror_name, set_mirror
 
 class Utils:
     def __init__(self, script_name = "OpCore Simplify"):
         self.script_name = script_name
+        self._init_language()
+
+    def _init_language(self):
+        lang = detect_system_language()
+        init_file = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), ".language")
+        if os.path.exists(init_file):
+            try:
+                with open(init_file, "r") as f:
+                    saved_lang = f.read().strip()
+                    if saved_lang in get_available_languages():
+                        lang = saved_lang
+            except:
+                pass
+        set_language(lang)
 
     def clean_temporary_dir(self):
         temporary_dir = tempfile.gettempdir()
@@ -205,11 +221,72 @@ class Utils:
         cols = max(len(line) for line in lines) if lines else 0
         print('\033[8;{};{}t'.format(max(rows+6, 30), max(cols+2, 100)))
 
+    def select_language(self):
+        languages = get_available_languages()
+        current = get_language()
+        while True:
+            self.head(_("Select Language"))
+            print("")
+            for i, (code, name) in enumerate(sorted(languages.items()), 1):
+                marker = " [*]" if code == current else " [ ]"
+                print("  {}. {}{}".format(i, name, marker))
+            print("")
+            print(_("B. Back"))
+            print("")
+            choice = self.request_input(_("Select your option: "))
+            if choice.lower() == "b":
+                return False
+            try:
+                idx = int(choice) - 1
+                codes = sorted(languages.keys())
+                if 0 <= idx < len(codes):
+                    selected_code = codes[idx]
+                    if selected_code != current:
+                        set_language(selected_code)
+                        init_file = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), ".language")
+                        try:
+                            with open(init_file, "w") as f:
+                                f.write(selected_code)
+                        except:
+                            pass
+                    return True
+            except ValueError:
+                pass
+            print("\033[91m" + _("Invalid selection, please try again.") + "\033[0m\n\n")
+
+    def select_mirror(self):
+        mirrors = get_available_mirrors()
+        current = get_mirror_name()
+        while True:
+            self.head(_("Download Mirror"))
+            print("")
+            for i, (name, url) in enumerate(sorted(mirrors.items()), 1):
+                marker = " [*]" if name == current else " [ ]"
+                if url:
+                    print("  {}. {}{}  ({})".format(i, name, marker, url))
+                else:
+                    print("  {}. {}{}".format(i, _("None"), marker))
+            print("")
+            print(_("B. Back"))
+            print("")
+            choice = self.request_input(_("Select your option: "))
+            if choice.lower() == "b":
+                return False
+            try:
+                idx = int(choice) - 1
+                names = sorted(mirrors.keys())
+                if 0 <= idx < len(names):
+                    set_mirror(names[idx])
+                    return True
+            except ValueError:
+                pass
+            print("\033[91m" + _("Invalid selection, please try again.") + "\033[0m\n\n")
+
     def exit_program(self):
         self.head()
         width = 68
         print("")
-        print("For more information, to report errors, or to contribute to the product:".center(width))
+        print(_("For more information, to report errors, or to contribute to the product:").center(width))
         print("")
 
         separator = "─" * (width - 4)
@@ -227,7 +304,7 @@ class Utils:
 
         print(f" └{separator}┘ ")
         print("")
-        print("Thank you for using our program!".center(width))
+        print(_("Thank you for using our program!").center(width))
         print("")
-        self.request_input("Press Enter to exit.".center(width))
+        self.request_input(_("Press Enter to exit.").center(width))
         sys.exit(0)

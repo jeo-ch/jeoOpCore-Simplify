@@ -3,6 +3,7 @@ from Scripts import kext_maestro
 from Scripts import integrity_checker
 from Scripts import resource_fetcher
 from Scripts import utils
+from Scripts.i18n import _
 import os
 import shutil
 import subprocess
@@ -94,7 +95,7 @@ class gatheringFiles:
     
     def move_bootloader_kexts_to_product_directory(self, product_name):
         if not os.path.exists(self.temporary_dir):
-            raise FileNotFoundError("The directory {} does not exist.".format(self.temporary_dir))
+            raise FileNotFoundError(_("The directory {} does not exist.").format(self.temporary_dir))
         
         temp_product_dir = os.path.join(self.temporary_dir, product_name)
         
@@ -148,9 +149,9 @@ class gatheringFiles:
         return True
     
     def gather_bootloader_kexts(self, kexts, macos_version):
-        self.utils.head("Gathering Files")
+        self.utils.head(_("Gathering Files"))
         print("")
-        print("Please wait for download OpenCorePkg, kexts and macserial...")
+        print(_("Please wait for download OpenCorePkg, kexts and macserial..."))
         local_download_history = self._load_download_history()
 
         latest_products = self.fetch_latest_products_info(kexts, local_download_history)
@@ -194,7 +195,7 @@ class gatheringFiles:
             
             if product_info is None:
                 print("\n")
-                print("Could not find download URL for {}.".format(product_name))
+                print(_("Could not find download URL for {}.").format(product_name))
                 continue
 
             product_id = product_info.get("id")
@@ -214,18 +215,18 @@ class gatheringFiles:
                 folder_is_valid, _ = self.integrity_checker.verify_folder_integrity(asset_dir, manifest_path)
                 
                 if is_latest_id and folder_is_valid:
-                    print(f"\nLatest version of {product_name} already downloaded.")
+                    print(f"\n{_('Latest version of {} already downloaded.').format(product_name)}")
                     continue
 
             print("")
-            print("Updating" if history_item is not None else "Please wait for download", end=" ")
-            print("{}...".format(product_name))
+            print(_("Updating") if history_item is not None else _("Please wait for download"), end=" ")
+            print(_("{}...").format(product_name))
             if product_download_url:
-                print("from {}".format(product_download_url))
+                print(_("from {}").format(product_download_url))
                 print("")
             else:
                 print("")
-                print("Could not find download URL for {}.".format(product_name))
+                print(_("Could not find download URL for {}.").format(product_name))
                 print("")
                 self.utils.request_input()
                 shutil.rmtree(self.temporary_dir, ignore_errors=True)
@@ -235,10 +236,10 @@ class gatheringFiles:
             if not self.fetcher.download_and_save_file(product_download_url, zip_path, sha256_hash):
                 folder_is_valid, _ = self.integrity_checker.verify_folder_integrity(asset_dir, manifest_path)
                 if history_item is not None and folder_is_valid:
-                    print("Using previously downloaded version of {}.".format(product_name))
+                    print(_("Using previously downloaded version of {}.").format(product_name))
                     continue
                 else:
-                    raise Exception("Could not download {} at this time. Please try again later.".format(product_name))
+                    raise Exception(_("Could not download {} at this time. Please try again later.").format(product_name))
             
             self.utils.extract_zip_file(zip_path)
             self.utils.create_folder(asset_dir, remove_content=True)
@@ -261,15 +262,15 @@ class gatheringFiles:
             if "OpenCore" in product_name:
                 oc_binary_data_zip_path = os.path.join(self.temporary_dir, "OcBinaryData.zip")
                 print("")
-                print("Please wait for download OcBinaryData...")
-                print("from {}".format(self.ocbinarydata_url))
+                print(_("Please wait for download OcBinaryData..."))
+                print(_("from {}").format(self.ocbinarydata_url))
                 print("")
                 self.fetcher.download_and_save_file(self.ocbinarydata_url, oc_binary_data_zip_path)
 
                 if not os.path.exists(oc_binary_data_zip_path):
                     print("")
-                    print("Could not download OcBinaryData at this time.")
-                    print("Please try again later.\n")
+                    print(_("Could not download OcBinaryData at this time."))
+                    print(_("Please try again later.") + "\n")
                     self.utils.request_input()
                     shutil.rmtree(self.temporary_dir, ignore_errors=True)
                     return False
@@ -290,10 +291,10 @@ class gatheringFiles:
             return response["Kernel"]["Patch"]
         except: 
             print("")
-            print("Unable to download {} at this time".format(patches_name))
-            print("from " + patches_url)
+            print(_("Unable to download {} at this time").format(patches_name))
+            print(_("from {}").format(patches_url))
             print("")
-            print("Please try again later or apply them manually.")
+            print(_("Please try again later or apply them manually."))
             print("")
             self.utils.request_input()
             return []
@@ -302,7 +303,7 @@ class gatheringFiles:
         if os_name != "Windows":
             return
 
-        self.utils.head("Gathering Hardware Sniffer")
+        self.utils.head(_("Gathering Hardware Sniffer"))
 
         PRODUCT_NAME = "Hardware-Sniffer-CLI.exe"
         REPO_OWNER = "lzhoang2801"
@@ -326,11 +327,11 @@ class gatheringFiles:
 
         if not all([product_id, product_download_url, sha256_hash]):
             print("")
-            print("Could not find release information for {}.".format(PRODUCT_NAME))
-            print("Please try again later.")
+            print(_("Could not find release information for {}.").format(PRODUCT_NAME))
+            print(_("Please try again later."))
             print("")
             self.utils.request_input()
-            raise Exception("Could not find release information for {}.".format(PRODUCT_NAME))
+            raise Exception(_("Could not find release information for {}.").format(PRODUCT_NAME))
         local_download_history = self._load_download_history()
 
         history_item = local_download_history.get(PRODUCT_NAME)
@@ -345,22 +346,22 @@ class gatheringFiles:
 
             if is_latest_id and file_is_valid:
                 print("")
-                print("Latest version of {} already downloaded.".format(PRODUCT_NAME))
+                print(_("Latest version of {} already downloaded.").format(PRODUCT_NAME))
                 return destination_path
 
         print("")
-        print("Updating" if history_item is not None else "Please wait for download", end=" ")
-        print("{}...".format(PRODUCT_NAME))
+        print(_("Updating") if history_item is not None else _("Please wait for download"), end=" ")
+        print(_("{}...").format(PRODUCT_NAME))
         print("")
-        print("from {}".format(product_download_url))
+        print(_("from {}").format(product_download_url))
         print("")
         
         if not self.fetcher.download_and_save_file(product_download_url, destination_path, sha256_hash):
             manual_download_url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest"
-            print("Go to {} to download {} manually.".format(manual_download_url, PRODUCT_NAME))
+            print(_("Go to {} to download {} manually.").format(manual_download_url, PRODUCT_NAME))
             print("")
             self.utils.request_input()
-            raise Exception("Failed to download {}.".format(PRODUCT_NAME))
+            raise Exception(_("Failed to download {}.").format(PRODUCT_NAME))
 
         self._save_download_history(local_download_history, PRODUCT_NAME, product_id, product_download_url, sha256_hash)
         

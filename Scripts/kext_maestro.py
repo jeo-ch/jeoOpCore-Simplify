@@ -4,6 +4,7 @@ from Scripts.datasets import os_data
 from Scripts.datasets import pci_data
 from Scripts.datasets import codec_layouts
 from Scripts import utils
+from Scripts.i18n import _
 import os
 import shutil
 
@@ -96,9 +97,9 @@ class KextMaestro:
                     other_kext.checked = False
 
     def select_required_kexts(self, hardware_report, macos_version, needs_oclp, acpi_patches):
-        self.utils.head("Select Required Kernel Extensions")
+        self.utils.head(_("Select Required Kernel Extensions"))
         print("")
-        print("Checking for required kernel extensions...")
+        print(_("Checking for required kernel extensions..."))
 
         for kext in self.kexts:
             kext.checked = kext.required
@@ -121,14 +122,14 @@ class KextMaestro:
 
         if any(codec_properties.get("Device ID") in codec_layouts.data for codec_properties in hardware_report.get("Sound", {}).values()):
             if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("25.0.0"):
-                print("\n\033[1;93mNote:\033[0m Since macOS Tahoe 26 DP2, Apple has removed AppleHDA kext and uses the Apple T2 chip for audio management.")
-                print("To use AppleALC, you must rollback AppleHDA. Alternatively, you can use VoodooHDA.")
+                print("\n" + _("\033[1;93mNote:\033[0m Since macOS Tahoe 26 DP2, Apple has removed AppleHDA kext and uses the Apple T2 chip for audio management."))
+                print(_("To use AppleALC, you must rollback AppleHDA. Alternatively, you can use VoodooHDA."))
                 print("")
-                print("1. \033[1mAppleALC\033[0m - Requires AppleHDA rollback with \033[1;93mOpenCore Legacy Patcher\033[0m")
-                print("2. \033[1mVoodooHDA\033[0m - Lower audio quality, manual injection to /Library/Extensions")
+                print(_("1. \033[1mAppleALC\033[0m - Requires AppleHDA rollback with \033[1;93mOpenCore Legacy Patcher\033[0m"))
+                print(_("2. \033[1mVoodooHDA\033[0m - Lower audio quality, manual injection to /Library/Extensions"))
                 print("")
                 while True:
-                    kext_option = self.utils.request_input("Select audio kext for your system: ").strip()
+                    kext_option = self.utils.request_input(_("Select audio kext for your system: ")).strip()
                     if kext_option == "1":
                         needs_oclp = True
                         selected_kexts.append("AppleALC")
@@ -136,7 +137,7 @@ class KextMaestro:
                     elif kext_option == "2":
                         break
                     else:
-                        print("\033[91mInvalid selection, please try again.\033[0m\n\n")
+                        print(_("\033[91mInvalid selection, please try again.\033[0m\n\n"))
             else:
                 selected_kexts.append("AppleALC")
         
@@ -165,37 +166,37 @@ class KextMaestro:
                     break
 
                 if gpu_props.get("Codename") in {"Navi 21", "Navi 23"}:
-                    print("\n*** Found {} is AMD {} GPU.".format(gpu_name, gpu_props.get("Codename")))
+                    print(_("\n*** Found {} is AMD {} GPU.").format(gpu_name, gpu_props.get("Codename")))
                     print("")
-                    print("\033[91mImportant: Black Screen Fix\033[0m")
-                    print("If you experience a black screen after verbose mode:")
-                    print("    1. Use ProperTree to open config.plist")
-                    print("    2. Navigate to NVRAM -> Add -> 7C436110-AB2A-4BBB-A880-FE41995C9F82 -> boot-args")
-                    print("    3. Remove \"-v debug=0x100 keepsyms=1\" from boot-args")
+                    print(_("\033[91mImportant: Black Screen Fix\033[0m"))
+                    print(_("If you experience a black screen after verbose mode:"))
+                    print(_("    1. Use ProperTree to open config.plist"))
+                    print(_("    2. Navigate to NVRAM -> Add -> 7C436110-AB2A-4BBB-A880-FE41995C9F82 -> boot-args"))
+                    print(_("    3. Remove \"-v debug=0x100 keepsyms=1\" from boot-args"))
                     print("")
                     recommended_option = 2
                     recommended_name = "WhateverGreen"
-                    print("\033[1;93mNote:\033[0m")
-                    print("- AMD {} GPUs have two available kext options:".format(gpu_props.get("Codename")))
-                    print("- You can try different kexts after installation to find the best one for your system")
+                    print(_("\033[1;93mNote:\033[0m"))
+                    print(_("- AMD {} GPUs have two available kext options:").format(gpu_props.get("Codename")))
+                    print(_("- You can try different kexts after installation to find the best one for your system"))
                     print("")
-                    print("1. \033[1mNootRX\033[0m - Uses latest GPU firmware")
-                    print("2. \033[1mWhateverGreen\033[0m - Uses original Apple firmware")
+                    print(_("1. \033[1mNootRX\033[0m - Uses latest GPU firmware"))
+                    print(_("2. \033[1mWhateverGreen\033[0m - Uses original Apple firmware"))
                     print("")
 
                     if any(other_gpu_props.get("Manufacturer") == "Intel" for other_gpu_props in hardware_report.get("GPU", {}).values()):
-                        print("\033[91mImportant:\033[0m NootRX kext is not compatible with Intel GPUs")
-                        print("Automatically selecting WhateverGreen kext due to Intel GPU compatibility")
+                        print(_("\033[91mImportant:\033[0m NootRX kext is not compatible with Intel GPUs"))
+                        print(_("Automatically selecting WhateverGreen kext due to Intel GPU compatibility"))
                         print("")
-                        self.utils.request_input("Press Enter to continue...")
+                        self.utils.request_input(_("Press Enter to continue..."))
                         continue
 
-                    kext_option = self.utils.request_input("Select kext for your AMD {} GPU (default: {}): ".format(gpu_props.get("Codename"), recommended_name)).strip() or str(recommended_option)
+                    kext_option = self.utils.request_input(_("Select kext for your AMD {} GPU (default: {}): ").format(gpu_props.get("Codename"), recommended_name)).strip() or str(recommended_option)
                     
                     if kext_option.isdigit() and 0 < int(kext_option) < 3:
                         selected_option = int(kext_option)
                     else:
-                        print("\033[93mInvalid selection, using recommended option: {}\033[0m".format(recommended_option))
+                        print(_("\033[93mInvalid selection, using recommended option: {}\033[0m").format(recommended_option))
                         selected_option = recommended_option
 
                     if selected_option == 1:
@@ -229,39 +230,39 @@ class KextMaestro:
             elif device_id in pci_data.BroadcomWiFiIDs[16:18] and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("20.0.0"):
                 selected_kexts.append("AirportBrcmFixup")
             elif device_id in pci_data.IntelWiFiIDs:
-                print("\n*** Found {} is Intel WiFi device.".format(network_name))
+                print(_("\n*** Found {} is Intel WiFi device.").format(network_name))
                 print("")
-                print("\033[1;93mNote:\033[0m Intel WiFi devices have two available kext options:")
+                print(_("\033[1;93mNote:\033[0m Intel WiFi devices have two available kext options:"))
                 print("")
-                print("1. \033[1mAirportItlwm\033[0m - Uses native WiFi settings menu")
-                print("   • Provides Handoff, Universal Clipboard, Location Services, Instant Hotspot support")
-                print("   • Supports enterprise-level security")
+                print(_("1. \033[1mAirportItlwm\033[0m - Uses native WiFi settings menu"))
+                print(_("   • Provides Handoff, Universal Clipboard, Location Services, Instant Hotspot support"))
+                print(_("   • Supports enterprise-level security"))
 
                 if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("24.0.0"):
-                    print("   • \033[91mSince macOS Sequoia 15\033[0m: Can work with OCLP root patch but may cause issues")
+                    print(_("   • \033[91mSince macOS Sequoia 15\033[0m: Can work with OCLP root patch but may cause issues"))
                 
                 print("")
-                print("2. \033[1mitlwm\033[0m - More stable overall")
-                print("   • Works with HeliPort app instead of native WiFi settings menu")
-                print("   • No Apple Continuity features and enterprise-level security")
-                print("   • Can connect to Hidden Networks")
+                print(_("2. \033[1mitlwm\033[0m - More stable overall"))
+                print(_("   • Works with HeliPort app instead of native WiFi settings menu"))
+                print(_("   • No Apple Continuity features and enterprise-level security"))
+                print(_("   • Can connect to Hidden Networks"))
                 print("")
 
                 recommended_option = 2 if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("23.0.0") else 1
                 recommended_name = "itlwm" if recommended_option == 2 else "AirportItlwm"
 
                 if "Beta" in os_data.get_macos_name_by_darwin(macos_version):
-                    print("\033[91mImportant:\033[0m For macOS Beta versions, only itlwm kext is supported")
+                    print(_("\033[91mImportant:\033[0m For macOS Beta versions, only itlwm kext is supported"))
                     print("")
-                    self.utils.request_input("Press Enter to continue...")
+                    self.utils.request_input(_("Press Enter to continue..."))
                     selected_option = recommended_option
                 else:
-                    kext_option = self.utils.request_input("Select kext for your Intel WiFi device (default: {}): ".format(recommended_name)).strip() or str(recommended_option)
+                    kext_option = self.utils.request_input(_("Select kext for your Intel WiFi device (default: {}): ").format(recommended_name)).strip() or str(recommended_option)
                     
                     if kext_option.isdigit() and 0 < int(kext_option) < 3:
                         selected_option = int(kext_option)
                     else:
-                        print("\033[91mInvalid selection, using recommended option: {}\033[0m".format(recommended_option))
+                        print(_("\033[91mInvalid selection, using recommended option: {}\033[0m").format(recommended_option))
                         selected_option = recommended_option
                 
                 if selected_option == 2:
@@ -626,18 +627,18 @@ class KextMaestro:
             return False
         
         while True:
-            self.utils.head("Kext Compatibility Check")
-            print("\nIncompatible kexts for the current macOS version ({}):\n".format(target_darwin_version))
+            self.utils.head(_("Kext Compatibility Check"))
+            print(_("\nIncompatible kexts for the current macOS version ({}):\n").format(target_darwin_version))
             
             for index, (kext_name, is_lilu_dependent) in enumerate(incompatible_kexts, start=1):
-                print("{:2}. {:25}{}".format(index, kext_name, " - Lilu Plugin" if is_lilu_dependent else ""))
+                print(_("{:2}. {:25}{}").format(index, kext_name, _(" - Lilu Plugin") if is_lilu_dependent else ""))
             
-            print("\n\033[1;93mNote:\033[0m")
-            print("- With Lilu plugins, using the \"-lilubetaall\" boot argument will force them to load.")
-            print("- Forcing unsupported kexts can cause system instability. \033[0;31mProceed with caution.\033[0m")
+            print(_("\n\033[1;93mNote:\033[0m"))
+            print(_("- With Lilu plugins, using the \"-lilubetaall\" boot argument will force them to load."))
+            print(_("- Forcing unsupported kexts can cause system instability. \033[0;31mProceed with caution.\033[0m"))
             print("")
             
-            option = self.utils.request_input("Do you want to force load {} on the unsupported macOS version? (yes/No): ".format("these kexts" if len(incompatible_kexts) > 1 else "this kext"))
+            option = self.utils.request_input(_("Do you want to force load {} on the unsupported macOS version? (yes/No): ").format(_("these kexts") if len(incompatible_kexts) > 1 else _("this kext")))
             
             if option.lower() == "yes":
                 return True
@@ -650,35 +651,35 @@ class KextMaestro:
         while True:
             contents = []
             contents.append("")
-            contents.append("List of available kexts:")
+            contents.append(_("List of available kexts:"))
             for index, kext in enumerate(self.kexts, start=1):
                 if kext.category != current_category:
                     current_category = kext.category
-                    category_header = "Category: {}".format(current_category if current_category else "Uncategorized")
-                    contents.append(f"\n{category_header}\n" + "=" * len(category_header))
+                    category_header = _("Category: {}").format(current_category if current_category else _("Uncategorized"))
+                    contents.append("\n" + category_header + "\n" + "=" * len(category_header))
                 checkbox = "[*]" if kext.checked else "[ ]"
                 
-                line = "{} {:2}. {:35} - {:60}".format(checkbox, index, kext.name, kext.description)
+                line = _("{} {:2}. {:35} - {:60}").format(checkbox, index, kext.name, _(kext.description))
                 if kext.checked:
                     line = "\033[1;32m{}\033[0m".format(line)
                 elif not self.utils.parse_darwin_version(kext.min_darwin_version) <= self.utils.parse_darwin_version(macos_version) <= self.utils.parse_darwin_version(kext.max_darwin_version):
                     line = "\033[90m{}\033[0m".format(line)
                 contents.append(line)
             contents.append("")
-            contents.append("\033[1;93mNote:\033[0m")
-            contents.append("- Lines in gray indicate kexts that are not supported by the current macOS version ({}).".format(macos_version))
-            contents.append("- When a plugin of a kext is selected, the entire kext will be automatically selected.")
-            contents.append("- You can select multiple kexts by entering their indices separated by commas (e.g., '1, 2, 3').")
+            contents.append(_("\033[1;93mNote:\033[0m"))
+            contents.append(_("- Lines in gray indicate kexts that are not supported by the current macOS version ({}).").format(macos_version))
+            contents.append(_("- When a plugin of a kext is selected, the entire kext will be automatically selected."))
+            contents.append(_("- You can select multiple kexts by entering their indices separated by commas (e.g., '1, 2, 3')."))
             contents.append("")
-            contents.append("B. Back")
-            contents.append("Q. Quit")
+            contents.append(_("B. Back"))
+            contents.append(_("Q. Quit"))
             contents.append("")
             content = "\n".join(contents)
 
             self.utils.adjust_window_size(content)
-            self.utils.head("Configure Kernel Extensions", resize=False)
+            self.utils.head(_("Configure Kernel Extensions"), resize=False)
             print(content)
-            option = self.utils.request_input("Select your option: ")
+            option = self.utils.request_input(_("Select your option: "))
             if option.lower() == "b":
                 return
             if option.lower() == "q":

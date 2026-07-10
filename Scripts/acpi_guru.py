@@ -3321,28 +3321,29 @@ DefinitionBlock ("", "SSDT", 2, "ZPSS", "WMIS", 0x00000000)
     def customize_patch_selection(self):
         while True:
             contents = []
+            from Scripts.i18n import _
             contents.append("")
-            contents.append("List of available patches:")
+            contents.append(_("List of available patches:"))
             contents.append("")
             for index, kext in enumerate(self.patches, start=1):
                 checkbox = "[*]" if kext.checked else "[ ]"
                 
-                line = "{} {:2}. {:15} - {:60}".format(checkbox, index, kext.name, kext.description)
+                line = _("{} {:2}. {:15} - {:60}").format(checkbox, index, kext.name, _(kext.description))
                 if kext.checked:
                     line = "\033[1;32m{}\033[0m".format(line)
                 contents.append(line)
             contents.append("")
-            contents.append("\033[1;93mNote:\033[0m You can select multiple kexts by entering their indices separated by commas (e.g., '1, 2, 3').")
+            contents.append("\033[1;93m" + _("Note:") + "\033[0m " + _("You can select multiple kexts by entering their indices separated by commas (e.g., '1, 2, 3')."))
             contents.append("")
-            contents.append("B. Back")
-            contents.append("Q. Quit")
+            contents.append(_("B. Back"))
+            contents.append(_("Q. Quit"))
             contents.append("")
             content = "\n".join(contents)
 
             self.utils.adjust_window_size(content)
-            self.utils.head("Customize ACPI Patch Selections", resize=False)
+            self.utils.head(_("Customize ACPI Patch Selections"), resize=False)
             print(content)
-            option = self.utils.request_input("Select your option: ")
+            option = self.utils.request_input(_("Select your option: "))
             if option.lower() == "q":
                 self.utils.exit_program()
             if option.lower() == "b":

@@ -1,4 +1,5 @@
 from Scripts import integrity_checker
+from Scripts import mirror
 from Scripts import utils
 import ssl
 import os
@@ -58,9 +59,11 @@ class ResourceFetcher:
 
         return None
 
-    def fetch_and_parse_content(self, resource_url, content_type=None):
+    def fetch_and_parse_content(self, resource_url, content_type=None, use_mirror=True):
         attempt = 0
         response = None
+        if use_mirror:
+            resource_url = mirror.apply_mirror(resource_url)
 
         while attempt < 3:
             response = self._make_request(resource_url)
@@ -155,8 +158,10 @@ class ResourceFetcher:
             
         print()
 
-    def download_and_save_file(self, resource_url, destination_path, sha256_hash=None):
+    def download_and_save_file(self, resource_url, destination_path, sha256_hash=None, use_mirror=True):
         attempt = 0
+        if use_mirror:
+            resource_url = mirror.apply_mirror(resource_url)
 
         while attempt < MAX_ATTEMPTS:
             attempt += 1

@@ -2,6 +2,7 @@ from Scripts.datasets import os_data
 from Scripts.datasets import pci_data
 from Scripts import compatibility_checker
 from Scripts import utils
+from Scripts.i18n import _
 
 class HardwareCustomizer:
     def __init__(self):
@@ -16,7 +17,7 @@ class HardwareCustomizer:
         self.selected_devices = {}
         needs_oclp = False
 
-        self.utils.head("Hardware Customization")
+        self.utils.head(_("Hardware Customization"))
 
         for device_type, devices in self.hardware_report.items():
             if not device_type in ("BIOS", "GPU", "Sound", "Biometric", "Network", "Storage Controllers", "Bluetooth", "SD Controller"):
@@ -28,15 +29,15 @@ class HardwareCustomizer:
             if device_type == "BIOS":
                 self.customized_hardware[device_type] = devices.copy()
                 if devices.get("Firmware Type") != "UEFI":
-                    print("\n*** BIOS Firmware Type is not UEFI")
+                    print("\n" + _("*** BIOS Firmware Type is not UEFI"))
                     print("")
-                    print("Do you want to build the EFI for UEFI?")
-                    print("If yes, please make sure to update your BIOS and enable UEFI Boot Mode in your BIOS settings.")
-                    print("You can still proceed with Legacy if you prefer.")
+                    print(_("Do you want to build the EFI for UEFI?"))
+                    print(_("If yes, please make sure to update your BIOS and enable UEFI Boot Mode in your BIOS settings."))
+                    print(_("You can still proceed with Legacy if you prefer."))
                     print("")
 
                     while True:
-                        answer = self.utils.request_input("Build EFI for UEFI? (Yes/no): ").strip().lower()
+                        answer = self.utils.request_input(_("Build EFI for UEFI? (Yes/no): ")).strip().lower()
                         if answer == "yes":
                             self.customized_hardware[device_type]["Firmware Type"] = "UEFI"
                             break
@@ -44,7 +45,7 @@ class HardwareCustomizer:
                             self.customized_hardware[device_type]["Firmware Type"] = "Legacy"
                             break
                         else:
-                            print("\033[91mInvalid selection, please try again.\033[0m\n\n")
+                            print("\033[91m" + _("Invalid selection, please try again.") + "\033[0m\n\n")
                 continue
             
             for device_name in devices:
@@ -72,18 +73,18 @@ class HardwareCustomizer:
                     self._handle_device_selection(device_type if device_type != "Network" else "WiFi")
         
         if self.selected_devices:
-            self.utils.head("Device Selection Summary")
+            self.utils.head(_("Device Selection Summary"))
             print("")
-            print("Selected devices:")
+            print(_("Selected devices:"))
             print("")
-            print("Type          Device                                     Device ID")
+            print(_("Type          Device                                     Device ID"))
             print("------------------------------------------------------------------")
             for device_type, device_dict in self.selected_devices.items():
                 for device_name, device_props in device_dict.items():
                     device_id = device_props.get("Device ID", "Unknown")
                     print("{:<13} {:<42} {}".format(device_type, device_name[:38], device_id))
             print("")
-            print("All other devices of the same type have been disabled.")
+            print(_("All other devices of the same type have been disabled."))
             print("")
             self.utils.request_input()
         
@@ -115,9 +116,9 @@ class HardwareCustomizer:
         device_groups = None
 
         if len(devices) > 1:       
-            print("\n*** Multiple {} Devices Detected".format(device_type))
+            print(_("\n*** Multiple {} Devices Detected").format(device_type))
             if device_type == "WiFi" or device_type == "Bluetooth":
-                print(f"macOS works best with only one {device_type} device enabled.")
+                print(_("macOS works best with only one {} device enabled.").format(device_type))
             elif device_type == "GPU":
                 _apu_index = None
                 _navi_22_indices = set()
@@ -148,7 +149,7 @@ class HardwareCustomizer:
                     _other_indices.add(index)
 
                 if _apu_index or _navi_22_indices:
-                    print("Multiple active GPUs can cause kext conflicts in macOS.")
+                    print(_("Multiple active GPUs can cause kext conflicts in macOS."))
                 
                 device_groups = []
                 if _apu_index:
@@ -188,9 +189,9 @@ class HardwareCustomizer:
     def _select_device(self, device_type, devices, device_groups=None):
         print("")
         if device_groups:
-            print("Please select a {} combination configuration:".format(device_type))
+            print(_("Please select a {} combination configuration:").format(device_type))
         else:
-            print("Please select which {} device you want to use:".format(device_type))
+            print(_("Please select which {} device you want to use:").format(device_type))
         print("")
         
         if device_groups:
@@ -233,17 +234,17 @@ class HardwareCustomizer:
             for idx, (group_devices, _, group_compatibility) in enumerate(valid_combinations, start=1):
                 print("{}. {}".format(idx, " + ".join(group_devices)))
                 if group_compatibility:
-                    print("   Compatibility: {}".format(self.compatibility_checker.show_macos_compatibility(group_compatibility)))
+                    print(_("   Compatibility: {}").format(self.compatibility_checker.show_macos_compatibility(group_compatibility)))
                 if len(group_devices) == 1:
                     device_props = devices[group_devices[0]]
                     if device_props.get("OCLP Compatibility"):
                         oclp_compatibility = device_props.get("OCLP Compatibility")
                         if self.utils.parse_darwin_version(oclp_compatibility[0]) > self.utils.parse_darwin_version(group_compatibility[0]):
-                            print("   OCLP Compatibility: {}".format(self.compatibility_checker.show_macos_compatibility((oclp_compatibility[0], os_data.get_lowest_darwin_version()))))
+                            print(_("   OCLP Compatibility: {}").format(self.compatibility_checker.show_macos_compatibility((oclp_compatibility[0], os_data.get_lowest_darwin_version()))))
                 print("")
             
             while True:
-                choice = self.utils.request_input(f"Select a {device_type} combination (1-{len(valid_combinations)}): ")
+                choice = self.utils.request_input(_("Select a {} combination (1-{}): ").format(device_type, len(valid_combinations)))
                 
                 try:
                     choice_num = int(choice)
@@ -256,26 +257,26 @@ class HardwareCustomizer:
 
                         return selected_devices
                     else:
-                        print("Invalid option. Please try again.")
+                        print(_("Invalid option. Please try again."))
                 except ValueError:
-                    print("Please enter a valid number.")
+                    print(_("Please enter a valid number."))
         else:
             for index, device_name in enumerate(devices, start=1):
                 device_props = devices[device_name]
                 compatibility = device_props.get("Compatibility")
                 
                 print("{}. {}".format(index, device_name))
-                print("   Device ID: {}".format(device_props.get("Device ID", "Unknown")))
-                print("   Compatibility: {}".format(self.compatibility_checker.show_macos_compatibility(compatibility)))
+                print(_("   Device ID: {}").format(device_props.get("Device ID", "Unknown")))
+                print(_("   Compatibility: {}").format(self.compatibility_checker.show_macos_compatibility(compatibility)))
                 
                 if device_props.get("OCLP Compatibility"):
                     oclp_compatibility = device_props.get("OCLP Compatibility")
                     if self.utils.parse_darwin_version(oclp_compatibility[0]) > self.utils.parse_darwin_version(compatibility[0]):
-                        print("   OCLP Compatibility: {}".format(self.compatibility_checker.show_macos_compatibility((oclp_compatibility[0], os_data.get_lowest_darwin_version()))))
+                        print(_("   OCLP Compatibility: {}").format(self.compatibility_checker.show_macos_compatibility((oclp_compatibility[0], os_data.get_lowest_darwin_version()))))
                 print()
             
             while True:
-                choice = self.utils.request_input(f"Select a {device_type} device (1-{len(devices)}): ")
+                choice = self.utils.request_input(_("Select a {} device (1-{}): ").format(device_type, len(devices)))
                 
                 try:
                     choice_num = int(choice)
@@ -288,9 +289,9 @@ class HardwareCustomizer:
                         
                         return [selected_device]
                     else:
-                        print("Invalid option. Please try again.")
+                        print(_("Invalid option. Please try again."))
                 except ValueError:
-                    print("Please enter a valid number.")
+                    print(_("Please enter a valid number."))
 
     def _disable_device(self, device_type, device_name, device_props):
         if device_type == "WiFi":
