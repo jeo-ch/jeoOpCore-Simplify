@@ -391,7 +391,7 @@ class OCPE:
                 print("  " + _("SMBIOS:          {}").format(smbios_model or _('Not selected')))
                 if disabled_devices:
                     print("  " + _("Disabled Devices:"))
-                    for device, _ in disabled_devices.items():
+                    for device, __ in disabled_devices.items():
                         print("    - {}".format(device))
             print("")
 

@@ -124,7 +124,7 @@ class gatheringFiles:
                 product_dir = os.path.join(self.ock_files_dir, product_name)
                 efi_dirs = self.utils.find_matching_paths(product_dir, name_filter="EFI", type_filter="dir")
 
-                for efi_dir, _ in efi_dirs:
+                for efi_dir, __ in efi_dirs:
                     for dir_name in os.listdir(ocbinarydata_dir):
                         source_dir = os.path.join(ocbinarydata_dir, dir_name)
                         destination_dir = os.path.join(destination_efi_path, "OC", dir_name)
@@ -133,13 +133,13 @@ class gatheringFiles:
 
                     resources_image_dir = os.path.join(product_dir, efi_dir, "OC", "Resources", "Image")
                     picker_variants = self.utils.find_matching_paths(resources_image_dir, type_filter="dir")
-                    for picker_variant, _ in picker_variants:
+                    for picker_variant, __ in picker_variants:
                         if ".icns" in ", ".join(os.listdir(os.path.join(resources_image_dir, picker_variant))):
                             shutil.copy(background_picker_path, os.path.join(resources_image_dir, picker_variant, "Background.icns"))
 
             macserial_paths = self.utils.find_matching_paths(temp_product_dir, name_filter="macserial", type_filter="file")
             if macserial_paths:
-                for macserial_path, _ in macserial_paths:
+                for macserial_path, __ in macserial_paths:
                     source_macserial_path = os.path.join(self.temporary_dir, product_name, macserial_path)
                     destination_macserial_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.basename(macserial_path))
                     shutil.move(source_macserial_path, destination_macserial_path)
