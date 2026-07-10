@@ -31,7 +31,7 @@ class Github:
         else:
             url = "https://github.com/{}/{}/commits/{}?after={}+{}".format(owner, repo, branch, start_commit, after)
 
-        response = self.fetcher.fetch_and_parse_content(url, use_mirror=False)
+        response = self.fetcher.fetch_and_parse_content(url)
 
         if not response:
             raise ValueError("Failed to fetch commit information from GitHub.")
@@ -45,7 +45,7 @@ class Github:
 
     def get_latest_release(self, owner, repo):
         url = "https://github.com/{}/{}/releases".format(owner, repo)
-        response = self.fetcher.fetch_and_parse_content(url, use_mirror=False)
+        response = self.fetcher.fetch_and_parse_content(url)
 
         if not response:
             raise ValueError("Failed to fetch release information from GitHub.")
