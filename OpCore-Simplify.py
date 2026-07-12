@@ -356,7 +356,7 @@ class OCPE:
         
         self.u.progress_bar(title, steps, len(steps), done=True)
         
-        print("OpenCore EFI build complete.")
+        print(_("OpenCore EFI build complete."))
         time.sleep(2)
         
     def check_bios_requirements(self, org_hardware_report, hardware_report):

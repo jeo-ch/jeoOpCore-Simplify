@@ -434,5 +434,6 @@
   "C. Cancel": "C. 取消",
   "Select an option (R/n/C): ": "请选择（R/n/C）：",
   "Generating a new report...": "正在生成新报告……",
-  "Could not read the existing report.": "无法读取现有报告。"
+  "Could not read the existing report.": "无法读取现有报告。",
+  "OpenCore EFI build complete.": "OpenCore EFI 构建完成。"
 }
