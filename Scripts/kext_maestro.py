@@ -411,7 +411,7 @@ class KextMaestro:
                         kext_name = "rtw88"
 
                     kext_paths = self.utils.find_matching_paths(self.ock_files_dir, extension_filter=".kext", name_filter=kext_name)
-                    for kext_path, type in kext_paths:
+                    for kext_path, _ in kext_paths:
                         if "AirportItlwm" == kext_name:
                             version = macos_version[:2]
                             if all((self.kexts[kext_data.kext_index_by_name.get("IOSkywalkFamily")].checked, self.kexts[kext_data.kext_index_by_name.get("IO80211FamilyLegacy")].checked)) or self.utils.parse_darwin_version("24.0.0") <= self.utils.parse_darwin_version(macos_version):
@@ -522,7 +522,7 @@ class KextMaestro:
         kext_paths = self.utils.find_matching_paths(kexts_directory, extension_filter=".kext")
         bundle_list = []
 
-        for kext_path, type in kext_paths:
+        for kext_path, _ in kext_paths:
             bundle_info = self.process_kext(kexts_directory, kext_path)
 
             if bundle_info:

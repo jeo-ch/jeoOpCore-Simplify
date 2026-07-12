@@ -3267,8 +3267,8 @@ DefinitionBlock ("", "SSDT", 2, "ZPSS", "WMIS", 0x00000000)
             if not device_id in ("8086-1C3A", "8086-1E3A"):
                 continue
             
-            if  "Sandy Bridge" in hardware_report.get("CPU").get("Codename") and device_id in "8086-1E3A" or \
-                "Ivy Bridge" in hardware_report.get("CPU").get("Codename") and device_id in "8086-1C3A":
+            if  "Sandy Bridge" in hardware_report.get("CPU").get("Codename") and device_id == "8086-1E3A" or \
+                "Ivy Bridge" in hardware_report.get("CPU").get("Codename") and device_id == "8086-1C3A":
                 selected_patches.append("IMEI")
 
         if hardware_report.get("Motherboard").get("Chipset") in chipset_data.IntelChipsets[100:112]:

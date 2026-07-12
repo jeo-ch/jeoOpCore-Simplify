@@ -84,7 +84,7 @@ class ConfigProdigy:
                     igpu_properties["AAPL,snb-platform-id"] = "00000500"
                     igpu_properties["device-id"] = "02010000"
             elif platform == "Laptop":
-                if any(tuple(map(int, "1600x900".split("x"))) <= tuple(map(int, monitor_info.get("Resolution").split("x"))) for monitor_name, monitor_info in monitor.items()):
+                if any(monitor_info.get("Resolution") and tuple(map(int, "1600x900".split("x"))) <= tuple(map(int, monitor_info.get("Resolution").split("x"))) for monitor_name, monitor_info in monitor.items()):
                     igpu_properties["AAPL00,DualLink"] = "01000000"
                 igpu_properties["AAPL,snb-platform-id"] = "00000100"
         elif device_id.startswith("01"):
@@ -222,7 +222,7 @@ class ConfigProdigy:
             igpu_properties["framebuffer-stolenmem"] = "00003001"
             igpu_properties["framebuffer-fbmem"] = "00009000"
 
-        if any(tuple(map(int, "3840x2160".split("x"))) <= tuple(map(int, monitor_info.get("Resolution").split("x"))) for monitor_name, monitor_info in monitor.items()):
+        if any(monitor_info.get("Resolution") and tuple(map(int, "3840x2160".split("x"))) <= tuple(map(int, monitor_info.get("Resolution").split("x"))) for monitor_name, monitor_info in monitor.items()):
             if platform == "Laptop":
                 igpu_properties["enable-max-pixel-clock-override"] = "01000000"
             if igpu_properties.get("framebuffer-stolenmem"):
@@ -336,9 +336,9 @@ class ConfigProdigy:
                                     if not device_id in ("8086-1C3A", "8086-1E3A"):
                                         continue
 
-                                    if "Sandy Bridge" in gpu_info.get("Codename") and device_id in "8086-1E3A":
+                                    if "Sandy Bridge" in gpu_info.get("Codename") and device_id == "8086-1E3A":
                                         add_device_property(device_info.get("PCI Path", "PciRoot(0x0)/Pci(0x16,0x0)"), {"device-id": "3A1C0000"})
-                                    elif "Ivy Bridge" in gpu_info.get("Codename") and device_id in "8086-1C3A":
+                                    elif "Ivy Bridge" in gpu_info.get("Codename") and device_id == "8086-1C3A":
                                         add_device_property(device_info.get("PCI Path", "PciRoot(0x0)/Pci(0x16,0x0)"), {"device-id": "3A1E0000"})
                 elif gpu_info.get("Device Type") == "Discrete GPU":
                     if not gpu_info.get("Device ID") in pci_data.SpoofGPUIDs:
@@ -524,7 +524,7 @@ class ConfigProdigy:
                     boot_args.append("-lilubetaall")
 
             if kext.name == "WhateverGreen":
-                if  any(tuple(map(int, "3840x2160".split("x"))) <= tuple(map(int, monitor_info.get("Resolution").split("x"))) for monitor_name, monitor_info in hardware_report.get("Monitor", {}).items()) and \
+                if  any(monitor_info.get("Resolution") and tuple(map(int, "3840x2160".split("x"))) <= tuple(map(int, monitor_info.get("Resolution").split("x"))) for monitor_name, monitor_info in hardware_report.get("Monitor", {}).items()) and \
                     self.utils.parse_darwin_version(macos_version) < self.utils.parse_darwin_version("20.0.0"):
                     boot_args.append("-cdfon")
 

@@ -7,6 +7,7 @@ from Scripts import gathering_files
 from Scripts import hardware_customizer
 from Scripts import i18n
 from Scripts import kext_maestro
+from Scripts import mirror
 from Scripts import report_validator
 from Scripts import run
 from Scripts import smbios
@@ -35,9 +36,46 @@ class OCPE:
         self.v = report_validator.ReportValidator()
         self.r = run.Run()
         self.result_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "Results")
+        self._mirror_prompted = False
 
     def select_hardware_report(self):
         self.ac.dsdt = self.ac.acpi.acpi_tables = None
+
+        report_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "SysReport")
+        existing_report = os.path.join(report_dir, "Report.json")
+
+        if os.path.exists(existing_report):
+            while True:
+                self.u.head(_("Hardware Report Found"))
+                print("")
+                print(_("An existing hardware report was found at:"))
+                print("  {}".format(existing_report))
+                print("")
+                print(_("R. Use existing report (Recommended)"))
+                print(_("N. Generate a new report"))
+                print(_("C. Cancel"))
+                print("")
+                choice = self.u.request_input(_("Select an option (R/n/C): ")).strip().lower()
+                if choice == "r" or choice == "":
+                    self.u.head(_("Select hardware report"))
+                    print("")
+                    print(_("Using existing hardware report..."))
+                    report_data = self.u.read_file(existing_report)
+                    if report_data:
+                        acpitables_dir = os.path.join(report_dir, "ACPI")
+                        self.ac.read_acpi_tables(acpitables_dir)
+                        return existing_report, report_data
+                    print("")
+                    print(_("Could not read the existing report."))
+                    print("")
+                    self.u.request_input(_("Press Enter to continue..."))
+                    break
+                elif choice == "n":
+                    print("")
+                    print(_("Generating a new report..."))
+                    break
+                elif choice == "c":
+                    self.u.exit_program()
 
         while True:
             self.u.head(_("Select hardware report"))
@@ -63,8 +101,6 @@ class OCPE:
 
                 if not hardware_sniffer:
                     continue
-
-                report_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "SysReport")
 
                 self.u.head(_("Exporting Hardware Report"))
                 print("")
@@ -149,7 +185,7 @@ class OCPE:
                 for device_name, device_props in hardware_report[device_type].items():
                     if device_props.get("Compatibility", (None, None)) != (None, None):
                         if device_type == "GPU" and device_props.get("Device Type") == "Integrated GPU":
-                            device_id = device_props.get("Device ID", ""*8)[5:]
+                            device_id = device_props.get("Device ID", "")[5:]
 
                             if device_props.get("Manufacturer") == "AMD" or device_id.startswith(("59", "87C0")):
                                 suggested_macos_version = "22.99.99"
@@ -276,7 +312,7 @@ class OCPE:
         drivers_directory = os.path.join(self.result_dir, "EFI", "OC", "Drivers")
         driver_list = self.u.find_matching_paths(drivers_directory, extension_filter=".efi")
         driver_loaded = [kext.get("Path") for kext in config_data.get("UEFI").get("Drivers")]
-        for driver_path, type in driver_list:
+        for driver_path, _ in driver_list:
             if not driver_path in driver_loaded:
                 files_to_remove.append(os.path.join(drivers_directory, driver_path))
 
@@ -302,7 +338,7 @@ class OCPE:
         tools_directory = os.path.join(self.result_dir, "EFI", "OC", "Tools")
         tool_list = self.u.find_matching_paths(tools_directory, extension_filter=".efi")
         tool_loaded = [tool.get("Path") for tool in config_data.get("Misc").get("Tools")]
-        for tool_path, type in tool_list:
+        for tool_path, _ in tool_list:
             if not tool_path in tool_loaded:
                 files_to_remove.append(os.path.join(tools_directory, tool_path))
 
@@ -371,6 +407,18 @@ class OCPE:
         self.u.open_folder(self.result_dir)
 
     def main(self):
+        if not self._mirror_prompted:
+            self._mirror_prompted = True
+            if mirror.get_mirror_name() == "None":
+                self.u.head(_("Download Mirror"))
+                print("")
+                print("  " + _("Would you like to use a download mirror?"))
+                print("  " + _("Mirrors can accelerate GitHub downloads in some regions."))
+                print("")
+                choice = self.u.request_input(_("Select mirror? (y/N): ")).strip().lower()
+                if choice == "y":
+                    self.u.select_mirror()
+
         hardware_report_path = None
         native_macos_version = None
         disabled_devices = None

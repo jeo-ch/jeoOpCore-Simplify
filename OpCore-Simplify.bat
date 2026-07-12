@@ -59,6 +59,54 @@ if "!syspath!" == "" (
     )
 )
 
+REM Check for existing mirror config
+if exist "!thisDir!.mirror" (
+    set /p mirror_name=<"!thisDir!.mirror"
+) else (
+    set "mirror_name=None"
+)
+
+if "!mirror_name!" == "None" (
+    cls
+    echo.
+    echo   Would you like to use a download mirror?
+    echo   Mirrors can accelerate GitHub downloads in some regions.
+    echo.
+    set /p "mirror_choice=Select mirror? (y/N): "
+    if /i "!mirror_choice!"=="y" (
+        cls
+        echo.
+        echo   Select a download mirror:
+        echo.
+        echo    1. None (direct download)
+        echo    2. ghfast.top
+        echo    3. gh-proxy.com
+        echo    4. ghproxy.link
+        echo    5. wget.la
+        echo    6. gh.llkk.cc
+        echo    7. gitclone.com
+        echo.
+        set /p "mirror_num=Enter number (default 1): "
+        if "!mirror_num!"=="" set mirror_num=1
+        for %%a in (1 2 3 4 5 6 7) do if "!mirror_num!"=="%%a" set "mirror_selected=%%a"
+        if not defined mirror_selected set mirror_num=1
+        if "!mirror_num!"=="1" set "mirror_name=None"
+        if "!mirror_num!"=="2" set "mirror_name=ghfast.top"
+        if "!mirror_num!"=="3" set "mirror_name=gh-proxy.com"
+        if "!mirror_num!"=="4" set "mirror_name=ghproxy.link"
+        if "!mirror_num!"=="5" set "mirror_name=wget.la"
+        if "!mirror_num!"=="6" set "mirror_name=gh.llkk.cc"
+        if "!mirror_num!"=="7" set "mirror_name=gitclone.com"
+        echo !mirror_name!>"!thisDir!.mirror"
+        echo.
+        echo Mirror set to: !mirror_name!
+        echo.
+        pause
+    ) else (
+        echo None>"!thisDir!.mirror"
+    )
+)
+
 if "%~1" == "--install-python" (
     set "just_installing=TRUE"
     goto installpy

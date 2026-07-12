@@ -301,11 +301,6 @@ def _normalize_resolution(res_str):
     return res_str
 
 
-def _omit_empty(d, non_empty_keys):
-    """Return dict with only keys that have non-empty string values."""
-    return {k: v for k, v in d.items() if k not in non_empty_keys or v}
-
-
 def collect_all():
     """Collect all hardware info and return the report dict."""
 

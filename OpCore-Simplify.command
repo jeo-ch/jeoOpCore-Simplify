@@ -285,6 +285,62 @@ prompt_and_download() {
 
 main() {
     local python= version=
+
+    # Mirror selection prompt
+    local mirror_file="$dir/.mirror"
+    local mirror_name="None"
+    if [ -f "$mirror_file" ]; then
+        mirror_name=$(cat "$mirror_file" | tr -d '\n')
+    fi
+    if [ "$mirror_name" = "None" ]; then
+        clear
+        echo ""
+        echo "  Would you like to use a download mirror?"
+        echo "  Mirrors can accelerate GitHub downloads in some regions."
+        echo ""
+        while true; do
+            read -p "Select mirror? (y/N): " yn
+            case $yn in
+                [Yy]* )
+                    clear
+                    echo ""
+                    echo "  Select a download mirror:"
+                    echo ""
+                    echo "    1. None (direct download)"
+                    echo "    2. ghfast.top"
+                    echo "    3. gh-proxy.com"
+                    echo "    4. ghproxy.link"
+                    echo "    5. wget.la"
+                    echo "    6. gh.llkk.cc"
+                    echo "    7. gitclone.com"
+                    echo ""
+                    read -p "Enter number (default 1): " mirror_num
+                    mirror_num=${mirror_num:-1}
+                    case $mirror_num in
+                        1) mirror_name="None" ;;
+                        2) mirror_name="ghfast.top" ;;
+                        3) mirror_name="gh-proxy.com" ;;
+                        4) mirror_name="ghproxy.link" ;;
+                        5) mirror_name="wget.la" ;;
+                        6) mirror_name="gh.llkk.cc" ;;
+                        7) mirror_name="gitclone.com" ;;
+                        *) mirror_name="None" ;;
+                    esac
+                    echo "$mirror_name" > "$mirror_file"
+                    echo ""
+                    echo "Mirror set to: $mirror_name"
+                    echo ""
+                    read -p "Press [Enter] to continue..."
+                    break
+                    ;;
+                [Nn]* | "" )
+                    echo "None" > "$mirror_file"
+                    break
+                    ;;
+            esac
+        done
+    fi
+
     # Verify our target exists
     if [ ! -f "$dir/$target" ]; then
         # Doesn't exist
