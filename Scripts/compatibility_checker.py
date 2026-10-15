@@ -10,6 +10,32 @@ class CompatibilityChecker:
     def __init__(self):
         self.utils = utils.Utils()
 
+    def _widest_compatibility(self, compatibilities):
+        compatibilities = [
+            compatibility for compatibility in compatibilities
+            if compatibility and compatibility != (None, None)
+        ]
+
+        if not compatibilities:
+            return (None, None)
+
+        return (
+            max(compatibilities, key=lambda compatibility: self.utils.parse_darwin_version(compatibility[0]))[0],
+            min(compatibilities, key=lambda compatibility: self.utils.parse_darwin_version(compatibility[1]))[1]
+        )
+
+    def _restrict_native_compatibility(self, compatibility):
+        max_version, min_version = compatibility
+
+        if max_version is None:
+            return
+
+        if self.utils.parse_darwin_version(max_version) < self.utils.parse_darwin_version(self.max_native_macos_version):
+            self.max_native_macos_version = max_version
+
+        if self.utils.parse_darwin_version(min_version) > self.utils.parse_darwin_version(self.min_native_macos_version):
+            self.min_native_macos_version = min_version
+
     def show_macos_compatibility(self, device_compatibility):
         if not device_compatibility:
             return "\033[90m" + _("Unchecked") + "\033[0m"
@@ -84,8 +110,9 @@ class CompatibilityChecker:
 
             max_version = os_data.get_latest_darwin_version()
             min_version = os_data.get_lowest_darwin_version()
-            ocl_patched_max_version = "24.99.99"
+            ocl_patched_max_version = os_data.get_latest_darwin_version(include_beta=False)
             ocl_patched_min_version = "20.0.0"
+            navi_requires_developer_mode = False
 
             if "Intel" in gpu_manufacturer:
                 if device_id.startswith(("0042", "0046")) and self.hardware_report.get("Motherboard").get("Platform") != "Desktop":
@@ -109,7 +136,8 @@ class CompatibilityChecker:
                 if "Navi 2" in gpu_codename:
                     if not "AVX2" in self.hardware_report.get("CPU").get("SIMD Features"):
                         max_version = "21.99.99"
-                        ocl_patched_max_version = max_version
+                        ocl_patched_min_version = "22.0.0"
+                        navi_requires_developer_mode = True
                     else:
                         if gpu_codename in ("Navi 23", "Navi 22"):
                             min_version = "21.2.0"
@@ -121,6 +149,7 @@ class CompatibilityChecker:
                     if not "AVX2" in self.hardware_report.get("CPU").get("SIMD Features"):
                         max_version = "21.99.99"
                         ocl_patched_min_version = "22.0.0"
+                        navi_requires_developer_mode = True
                     min_version = "19.0.0"
                 elif "Vega 20" in gpu_codename:
                     if not "AVX2" in self.hardware_report.get("CPU").get("SIMD Features"):
@@ -159,7 +188,8 @@ class CompatibilityChecker:
             print("{}- {}: {}".format(" "*3, gpu_name, self.show_macos_compatibility(gpu_props.get("Compatibility"))))
 
             if "OCLP Compatibility" in gpu_props:
-                print(_("{}- OCLP Compatibility: {}").format(" "*6, self.show_macos_compatibility(gpu_props.get("OCLP Compatibility"))))
+                print(_("{}- OCLP Compatibility{}: {}").format(" "*6, _(" (requires developer mode)") if navi_requires_developer_mode else "", self.show_macos_compatibility(gpu_props.get("OCLP Compatibility"))))
+
 
             connected_monitors = []
             for monitor_name, monitor_info in self.hardware_report.get("Monitor", {}).items(): 
@@ -171,8 +201,6 @@ class CompatibilityChecker:
             if connected_monitors:
                 print(_("{}- Connected Monitor{}: {}").format(" "*6, "s" if len(connected_monitors) > 1 else "", ", ".join(connected_monitors)))
 
-        max_supported_gpu_version = min_supported_gpu_version = None
-
         for gpu_name, gpu_props in self.hardware_report.get("GPU").items():
             if gpu_props.get("Compatibility") != (None, None):
                 if all(other_gpu_props.get("Compatibility") == (None, None) for other_gpu_props in self.hardware_report.get("GPU").values() if other_gpu_props != gpu_props):
@@ -182,14 +210,15 @@ class CompatibilityChecker:
                     if gpu_props.get("OCLP Compatibility"):
                         del gpu_props["OCLP Compatibility"]
 
-                max_version, min_version = gpu_props.get("Compatibility")
-                max_supported_gpu_version = max_version if not max_supported_gpu_version else max_version if self.utils.parse_darwin_version(max_version) > self.utils.parse_darwin_version(max_supported_gpu_version) else max_supported_gpu_version
-                min_supported_gpu_version = min_version if not min_supported_gpu_version else min_version if self.utils.parse_darwin_version(min_version) < self.utils.parse_darwin_version(min_supported_gpu_version) else min_supported_gpu_version
-
             if gpu_props.get("OCLP Compatibility"):
                 self.ocl_patched_macos_version = (gpu_props.get("OCLP Compatibility")[0], self.ocl_patched_macos_version[-1] if self.ocl_patched_macos_version and self.utils.parse_darwin_version(self.ocl_patched_macos_version[-1]) < self.utils.parse_darwin_version(gpu_props.get("OCLP Compatibility")[-1]) else gpu_props.get("OCLP Compatibility")[-1])
+
+        gpu_compatibility = self._widest_compatibility(
+            gpu_props.get("Compatibility")
+            for gpu_props in self.hardware_report.get("GPU").values()
+        )
         
-        if max_supported_gpu_version == min_supported_gpu_version and max_supported_gpu_version == None:
+        if gpu_compatibility == (None, None):
             print("")
             print(_("You cannot install macOS without a supported GPU."))
             print(_("Please do NOT spam my inbox or issue tracker about this issue anymore!"))
@@ -197,8 +226,7 @@ class CompatibilityChecker:
             self.utils.request_input()
             self.utils.exit_program()
 
-        self.max_native_macos_version = max_supported_gpu_version if self.utils.parse_darwin_version(max_supported_gpu_version) < self.utils.parse_darwin_version(self.max_native_macos_version) else self.max_native_macos_version
-        self.min_native_macos_version = min_supported_gpu_version if self.utils.parse_darwin_version(min_supported_gpu_version) > self.utils.parse_darwin_version(self.min_native_macos_version) else self.min_native_macos_version
+        self._restrict_native_compatibility(gpu_compatibility)
 
     def check_sound_compatibility(self):
         for audio_device, audio_props in self.hardware_report.get("Sound", {}).items():
@@ -291,9 +319,13 @@ class CompatibilityChecker:
             self.utils.request_input()
             self.utils.exit_program()
 
-        for controller_name, controller_props in self.hardware_report["Storage Controllers"].items():
-            if controller_props.get("Bus Type") != "PCI":
-                continue
+        storage_controllers = {
+            controller_name: controller_props
+            for controller_name, controller_props in self.hardware_report["Storage Controllers"].items()
+            if controller_props.get("Bus Type") == "PCI" and controller_props.get("Disk Drives")
+        }
+
+        for controller_name, controller_props in storage_controllers.items():
 
             device_id = controller_props.get("Device ID")
             subsystem_id = controller_props.get("Subsystem ID", "0"*8)
@@ -309,14 +341,22 @@ class CompatibilityChecker:
                 self.utils.request_input()
                 self.utils.exit_program()
 
-            if next((device for device in pci_data.UnsupportedNVMeSSDIDs if device_id == device[0] and subsystem_id in device[1]), None):
+            unsupported_subsystem_ids = pci_data.UnsupportedNVMeSSDIDs.get(device_id)
+            if unsupported_subsystem_ids and subsystem_id in unsupported_subsystem_ids:
                 max_version = min_version = None
+            elif device_id == "1C5C-174A":
+                min_version = "20.0.0"
 
             controller_props["Compatibility"] = (max_version, min_version)
                 
             print("{}- {}: {}".format(" "*3, controller_name, self.show_macos_compatibility(controller_props.get("Compatibility"))))
 
-        if all(controller_props.get("Compatibility") == (None, None) for controller_name, controller_props in self.hardware_report["Storage Controllers"].items()):
+        storage_compatibility = self._widest_compatibility(
+            controller_props.get("Compatibility")
+            for controller_props in storage_controllers.values()
+        )
+
+        if storage_controllers and storage_compatibility == (None, None):
             print("")
             print(_("No compatible storage controller for macOS was found!"))
             print(_("Consider purchasing a compatible SSD NVMe for your system."))
@@ -324,6 +364,9 @@ class CompatibilityChecker:
             print("")
             self.utils.request_input()
             self.utils.exit_program()
+
+        if storage_controllers:
+            self._restrict_native_compatibility(storage_compatibility)
 
     def check_bluetooth_compatibility(self):
         for bluetooth_name, bluetooth_props in self.hardware_report.get("Bluetooth", {}).items():

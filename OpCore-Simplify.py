@@ -149,7 +149,9 @@ class OCPE:
             else:
                 return path, data
             
-    def show_oclp_warning(self):
+    def show_oclp_warning(self, macos_version):
+        is_tahoe = self.u.parse_darwin_version(macos_version) >= self.u.parse_darwin_version("25.0.0")
+
         while True:
             self.u.head(_("OpenCore Legacy Patcher Warning"))
             print("")
@@ -169,6 +171,11 @@ class OCPE:
             print(_("To patch macOS Tahoe 26, you must download OpenCore-Patcher 3.0.0 or newer from"))
             print(_("my repository: \033[4mlzhoang2801/OpenCore-Legacy-Patcher\033[0m on GitHub."))
             print(_("Older or official Dortania releases are NOT supported for Tahoe 26."))
+            print("")
+            print("\033[1;96m" + _("Why it is required:") + "\033[0m")
+            print(_("- Restores compatibility for GPUs and Broadcom WiFi."))
+            if is_tahoe:
+                print(_("- Rolls back AppleHDA to restore audio support through AppleALC."))
             print("")
             option = self.u.request_input(_("Do you want to continue with OpenCore Legacy Patcher? (yes/No): ")).strip().lower()
             if option == "yes":
@@ -500,7 +507,7 @@ class OCPE:
             elif option == "8":
                 self.u.select_mirror()
             elif option == "6":
-                if needs_oclp and not self.show_oclp_warning():
+                if needs_oclp and not self.show_oclp_warning(macos_version):
                     macos_version = self.select_macos_version(hardware_report, native_macos_version, ocl_patched_macos_version)
                     customized_hardware, disabled_devices, needs_oclp = self.h.hardware_customization(hardware_report, macos_version)
                     smbios_model = self.s.select_smbios_model(customized_hardware, macos_version)

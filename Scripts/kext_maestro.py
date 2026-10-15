@@ -78,23 +78,59 @@ class KextMaestro:
         
         return False
 
-    def check_kext(self, index, target_darwin_version, allow_unsupported_kexts=False):
-        kext = self.kexts[index]
+    def is_kext_compatible(self, kext, target_darwin_version):
+        return self.utils.parse_darwin_version(kext.min_darwin_version) <= self.utils.parse_darwin_version(target_darwin_version) <= self.utils.parse_darwin_version(kext.max_darwin_version)
 
-        if kext.checked or not (allow_unsupported_kexts or self.utils.parse_darwin_version(kext.min_darwin_version) <= self.utils.parse_darwin_version(target_darwin_version) <= self.utils.parse_darwin_version(kext.max_darwin_version)):
-            return
+    def get_kext_status(self, kext, target_darwin_version):
+        if kext.required:
+            return "required"
+
+        if self.is_kext_compatible(kext, target_darwin_version):
+            return "selected" if kext.checked else "available"
+
+        if kext.checked:
+            return "force_loaded"
+
+        if kext.allow_force_load:
+            return "force_available"
+
+        if self.utils.parse_darwin_version(target_darwin_version) > self.utils.parse_darwin_version(kext.max_darwin_version):
+            return "not_needed"
+
+        return "requires_newer"
+
+    def check_kext(self, index, target_darwin_version, force_load=False, checking=None):
+        if index is None or not 0 <= index < len(self.kexts):
+            return False
+
+        kext = self.kexts[index]
+        checking = checking or set()
+
+        if kext.checked:
+            return True
+
+        if index in checking:
+            return True
+
+        if not self.is_kext_compatible(kext, target_darwin_version) and not (force_load and kext.allow_force_load):
+            return False
+
+        checking.add(index)
+        for requires_kext_name in kext.requires_kexts:
+            requires_kext_index = kext_data.kext_index_by_name.get(requires_kext_name)
+            if not self.check_kext(requires_kext_index, target_darwin_version, force_load, checking):
+                checking.remove(index)
+                return False
+        checking.remove(index)
 
         kext.checked = True
 
-        for requires_kext_name in kext.requires_kexts:
-            requires_kext_index = kext_data.kext_index_by_name.get(requires_kext_name)
-            if requires_kext_index:
-                self.check_kext(requires_kext_index, target_darwin_version, allow_unsupported_kexts)
-
         if kext.conflict_group_id:
-            for other_kext in self.kexts:
+            for other_index, other_kext in enumerate(self.kexts):
                 if other_kext.conflict_group_id == kext.conflict_group_id and other_kext.name != kext.name:
-                    other_kext.checked = False
+                    self.uncheck_kext(other_index)
+
+        return True
 
     def select_required_kexts(self, hardware_report, macos_version, needs_oclp, acpi_patches):
         self.utils.head(_("Select Required Kernel Extensions"))
@@ -142,7 +178,8 @@ class KextMaestro:
                 selected_kexts.append("AppleALC")
         
         if "AMD" in hardware_report.get("CPU").get("Manufacturer") and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("21.4.0") or \
-            int(hardware_report.get("CPU").get("CPU Count")) > 1 and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("19.0.0"):
+            int(hardware_report.get("CPU").get("CPU Count")) > 1 and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("19.0.0") or \
+            hardware_report.get("CPU").get("Codename") in cpu_data.IntelCPUGenerations[:4]:
             selected_kexts.append("AppleMCEReporterDisabler")
 
         if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("22.0.0") and not "AVX2" in hardware_report.get("CPU").get("SIMD Features"):
@@ -222,6 +259,8 @@ class KextMaestro:
 
             if device_id in pci_data.BroadcomWiFiIDs and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("23.0.0"):
                 selected_kexts.append("IOSkywalkFamily")
+                if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("25.0.0"):
+                    selected_kexts.append("AirPortBrcmNIC-Tahoe")
 
             if device_id in pci_data.BroadcomWiFiIDs[:15]:
                 selected_kexts.append("AirportBrcmFixup")
@@ -272,8 +311,12 @@ class KextMaestro:
                     
                     if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("24.0.0"):
                         selected_kexts.append("IOSkywalkFamily")
+                        if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("25.0.0"):
+                            selected_kexts.append("AirPortBrcmNIC-Tahoe")
             elif device_id in pci_data.AtherosWiFiIDs[:8]:
                 selected_kexts.append("corecaptureElCap")
+                if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("25.0.0"):
+                    selected_kexts.append("AirPortAtheros40-Tahoe")
                 if self.utils.parse_darwin_version(macos_version) > self.utils.parse_darwin_version("20.99.99"):
                     selected_kexts.append("AMFIPass")
             elif device_id in pci_data.rtw88WiFiIDs:
@@ -284,8 +327,6 @@ class KextMaestro:
                 selected_kexts.append("AtherosE2200Ethernet")
             elif device_id in pci_data.IntelMausiIDs:
                 selected_kexts.append("IntelMausiEthernet")
-            elif device_id in pci_data.RealtekRTL8125IDs:
-                selected_kexts.append("LucyRTL8125Ethernet")
             elif device_id in pci_data.RealtekRTL8100IDs:
                 selected_kexts.append("RealtekRTL8100")
             elif device_id in pci_data.RealtekRTL8111IDs:
@@ -296,6 +337,8 @@ class KextMaestro:
                 selected_kexts.append("CatalinaBCM5701Ethernet")
             elif device_id in pci_data.IntelX500IDs:
                 selected_kexts.append("IntelLucy")
+            elif device_id in pci_data.RealtekRTL812xIDs:
+                selected_kexts.append("RTL812xLucy")
 
         if all(network_props.get("Bus Type") == "USB" for network_props in hardware_report.get("Network", {}).values()):
             selected_kexts.append("NullEthernet")
@@ -306,11 +349,11 @@ class KextMaestro:
             if usb_id in pci_data.AtherosBluetoothIDs:
                 selected_kexts.extend(("Ath3kBT", "Ath3kBTInjector"))
             elif usb_id in pci_data.BroadcomBluetoothIDs:               
-                selected_kexts.append("BrcmFirmwareData")
+                selected_kexts.extend(("BrcmFirmwareData", "BrcmPatchRAM2", "BrcmPatchRAM3", "BrcmBluetoothInjector", "BlueToolFixup"))
             elif usb_id in pci_data.IntelBluetoothIDs:
-                selected_kexts.append("IntelBluetoothFirmware")
+                selected_kexts.extend(("IntelBluetoothFirmware", "IntelBTPatcher", "IntelBluetoothInjector", "BlueToolFixup"))
             elif usb_id in pci_data.RealtekBluetoothIDs:
-                selected_kexts.append("RealtekBluetoothFirmware")
+                selected_kexts.extend(("RealtekBluetoothFirmware", "BlueToolFixup"))
             elif usb_id in pci_data.BluetoothIDs[-1]:
                 selected_kexts.append("BlueToolFixup")
 
@@ -360,6 +403,9 @@ class KextMaestro:
                     selected_kexts.append("RealtekCardReader")
         
         for controller_name, controller_props in hardware_report.get("Storage Controllers", {}).items():
+            if controller_props.get("Device ID") == "1C5C-174A":
+                selected_kexts.append("PC711Probe")
+
             if "NVMe" in controller_name or "NVM Express" in controller_name:
                 selected_kexts.append("NVMeFix")
             elif not "AHCI" in controller_name or "AMD" in hardware_report.get("CPU").get("Manufacturer"):
@@ -393,10 +439,11 @@ class KextMaestro:
         if "Sandy Bridge" in hardware_report.get("CPU").get("Codename") or "Ivy Bridge" in hardware_report.get("CPU").get("Codename"):
             selected_kexts.extend(("AppleIntelCPUPowerManagement", "AppleIntelCPUPowerManagementClient"))
 
-        allow_unsupported_kexts = self.verify_kext_compatibility(selected_kexts, macos_version)
+        selected_kexts = list(dict.fromkeys(selected_kexts))
+        force_load_kexts = self.verify_kext_compatibility(selected_kexts, macos_version)
 
         for name in selected_kexts:
-            self.check_kext(kext_data.kext_index_by_name.get(name), macos_version, allow_unsupported_kexts)
+            self.check_kext(kext_data.kext_index_by_name.get(name), macos_version, name in force_load_kexts)
 
         return needs_oclp
 
@@ -426,10 +473,10 @@ class KextMaestro:
                                 destination_kext_path = os.path.join(kexts_directory, os.path.basename(kext_path))
                                 break
                         else:
-                            main_kext = kext_path.split("/")[0]
+                            main_kext = kext_path.replace("\\", "/").split("/")[0]
                             main_kext_index = kext_data.kext_index_by_name.get(main_kext)
                             if not main_kext_index or self.kexts[main_kext_index].checked:
-                                if os.path.splitext(os.path.basename(kext_path))[0] in kext_name:
+                                if os.path.splitext(os.path.basename(kext_path))[0] == kext_name:
                                     source_kext_path = os.path.join(self.ock_files_dir, kext_path)
                                     destination_kext_path = os.path.join(kexts_directory, os.path.basename(kext_path))
                     
@@ -561,6 +608,14 @@ class KextMaestro:
                     bundle["MaxKernel"] = bundle["MaxKernel"] if self.utils.parse_darwin_version(bundle["MaxKernel"]) < self.utils.parse_darwin_version(bundle_dict[dep_identifier].get("MaxKernel", "99.99.99")) else bundle_dict[dep_identifier]["MaxKernel"]
                     bundle["MinKernel"] = bundle["MinKernel"] if self.utils.parse_darwin_version(bundle["MinKernel"]) > self.utils.parse_darwin_version(bundle_dict[dep_identifier].get("MinKernel", "0.0.0")) else bundle_dict[dep_identifier]["MinKernel"]
 
+            wifi_identifier = bundle.get("BundleIdentifier")
+            if wifi_identifier in ("com.apple.driver.AirPort.BrcmNIC", "com.apple.driver.AirPort.Atheros40"):
+                if bundle["BundlePath"].endswith("-Tahoe.kext"):
+                    bundle["MinKernel"] = "25.0.0"
+                else:
+                    bundle["MaxKernel"] = "24.99.99"
+                    bundle["MinKernel"] = "23.0.0" if wifi_identifier == "com.apple.driver.AirPort.BrcmNIC" else "18.0.0"
+
             if kext_name == "AirPortBrcm4360_Injector":
                 bundle["MaxKernel"] = "19.99.99"
             elif kext_name == "AirportItlwm":
@@ -569,10 +624,13 @@ class KextMaestro:
 
             visited.add((bundle.get("BundlePath"), bundle.get("BundleIdentifier")))
 
-            if bundle.get("BundleIdentifier") in seen_identifier:
+            identifier = bundle.get("BundleIdentifier")
+            if identifier in ("com.apple.driver.AirPort.BrcmNIC", "com.apple.driver.AirPort.Atheros40"):
+                identifier = (identifier, bundle["MinKernel"], bundle["MaxKernel"])
+            if identifier in seen_identifier:
                 bundle["Enabled"] = False
             else:
-                seen_identifier.add(bundle.get("BundleIdentifier"))
+                seen_identifier.add(identifier)
 
             sorted_bundles.append(bundle)
 
@@ -597,34 +655,50 @@ class KextMaestro:
         return kernel_add
 
     def uncheck_kext(self, index):
+        if index is None or not 0 <= index < len(self.kexts):
+            return False
+
         kext = self.kexts[index]
+
+        if not kext.checked:
+            return True
+
+        dependents = [
+            (other_index, other_kext)
+            for other_index, other_kext in enumerate(self.kexts)
+            if other_kext.checked and kext.name in other_kext.requires_kexts
+        ]
+
+        if kext.required or any(dependent.required for _, dependent in dependents):
+            return False
+
         kext.checked = False
 
-        for other_kext in self.kexts:
-            if other_kext.name in kext.requires_kexts and not other_kext.required:
-                other_kext.checked = False
+        for dependent_index, _ in dependents:
+            self.uncheck_kext(dependent_index)
 
-    def verify_kext_compatibility(self, selected_kexts, target_darwin_version):
+        for dependency_name in kext.requires_kexts:
+            dependency_index = kext_data.kext_index_by_name.get(dependency_name)
+            dependency = self.kexts[dependency_index]
+            if not dependency.required and not any(other_kext.checked and dependency_name in other_kext.requires_kexts for other_kext in self.kexts):
+                self.uncheck_kext(dependency_index)
+
+        return True
+
+    def verify_kext_compatibility(self, kext_names, target_darwin_version):
         incompatible_kexts = []
-        try:
-            incompatible_kexts = [
-                (self.kexts[index].name, "Lilu" in self.kexts[index].requires_kexts)
-                for index in selected_kexts
-                if not self.utils.parse_darwin_version(self.kexts[index].min_darwin_version)
-                <= self.utils.parse_darwin_version(target_darwin_version)
-                <= self.utils.parse_darwin_version(self.kexts[index].max_darwin_version)
-            ]
-        except:
-            incompatible_kexts = [
-                (self.kexts[kext_data.kext_index_by_name.get(kext_name)].name, "Lilu" in self.kexts[kext_data.kext_index_by_name.get(kext_name)].requires_kexts)
-                for kext_name in selected_kexts
-                if not self.utils.parse_darwin_version(self.kexts[kext_data.kext_index_by_name.get(kext_name)].min_darwin_version)
-                <= self.utils.parse_darwin_version(target_darwin_version)
-                <= self.utils.parse_darwin_version(self.kexts[kext_data.kext_index_by_name.get(kext_name)].max_darwin_version)
-            ]
+
+        for kext_name in dict.fromkeys(kext_names):
+            kext_index = kext_data.kext_index_by_name.get(kext_name)
+            if kext_index is None:
+                continue
+
+            kext = self.kexts[kext_index]
+            if not self.is_kext_compatible(kext, target_darwin_version) and kext.allow_force_load:
+                incompatible_kexts.append((kext.name, "Lilu" in kext.requires_kexts))
 
         if not incompatible_kexts:
-            return False
+            return set()
         
         while True:
             self.utils.head(_("Kext Compatibility Check"))
@@ -641,12 +715,13 @@ class KextMaestro:
             option = self.utils.request_input(_("Do you want to force load {} on the unsupported macOS version? (yes/No): ").format(_("these kexts") if len(incompatible_kexts) > 1 else _("this kext")))
             
             if option.lower() == "yes":
-                return True
+                return {kext_name for kext_name, _ in incompatible_kexts}
             elif option.lower() == "no":
-                return False
+                return set()
 
     def kext_configuration_menu(self, macos_version):
         current_category = None
+        messages = []
 
         while True:
             contents = []
@@ -657,22 +732,39 @@ class KextMaestro:
                     current_category = kext.category
                     category_header = _("Category: {}").format(current_category if current_category else _("Uncategorized"))
                     contents.append("\n" + category_header + "\n" + "=" * len(category_header))
-                checkbox = "[*]" if kext.checked else "[ ]"
-                
-                line = _("{} {:2}. {:35} - {:60}").format(checkbox, index, kext.name, _(kext.description))
-                if kext.checked:
+                status = self.get_kext_status(kext, macos_version)
+                marker = {
+                    "required": "[R]",
+                    "selected": "[*]",
+                    "force_loaded": "[!]",
+                    "available": "[ ]",
+                    "force_available": "[?]",
+                    "not_needed": "[-]",
+                    "requires_newer": "[-]"
+                }[status]
+                line = _("{} {:2}. {:35} - {:60}").format(marker, index, kext.name, _(kext.description))
+                if status in ("required", "selected"):
+
                     line = "\033[1;32m{}\033[0m".format(line)
-                elif not self.utils.parse_darwin_version(kext.min_darwin_version) <= self.utils.parse_darwin_version(macos_version) <= self.utils.parse_darwin_version(kext.max_darwin_version):
+                elif status == "force_loaded":
+                    line = "\033[1;93m{}\033[0m".format(line)
+                elif status in ("not_needed", "requires_newer"):
                     line = "\033[90m{}\033[0m".format(line)
                 contents.append(line)
             contents.append("")
-            contents.append(_("\033[1;93mNote:\033[0m"))
-            contents.append(_("- Lines in gray indicate kexts that are not supported by the current macOS version ({}).").format(macos_version))
+            contents.append(_("\033[1;93mStatus:\033[0m"))
+            contents.append(_("- [R] Required   [*] Selected   [!] Force loaded"))
+            contents.append(_("- [ ] Available  [?] Force available   [-] Unavailable"))
+            contents.append(_("- Lines in gray indicate kexts that are not supported by the current macOS version ({})." ).format(macos_version))
             contents.append(_("- When a plugin of a kext is selected, the entire kext will be automatically selected."))
             contents.append(_("- You can select multiple kexts by entering their indices separated by commas (e.g., '1, 2, 3')."))
             contents.append("")
             contents.append(_("B. Back"))
             contents.append(_("Q. Quit"))
+            if messages:
+                contents.append("")
+                contents.extend("\033[1;96m{}\033[0m".format(message) for message in messages)
+                messages = []
             contents.append("")
             content = "\n".join(contents)
 
@@ -684,14 +776,31 @@ class KextMaestro:
                 return
             if option.lower() == "q":
                 self.utils.exit_program()
-            indices = [int(i.strip()) -1 for i in option.split(",") if i.strip().isdigit()]
+            indices = [int(i.strip()) - 1 for i in option.split(",") if i.strip().isdigit()]
+            indices = [index for index in indices if 0 <= index < len(self.kexts)]
+            kexts_to_enable = [self.kexts[index].name for index in indices if not self.kexts[index].checked]
 
-            allow_unsupported_kexts = self.verify_kext_compatibility(indices, macos_version)
+            force_load_kexts = self.verify_kext_compatibility(kexts_to_enable, macos_version)
     
             for index in indices:
-                if index >= 0 and index < len(self.kexts):
-                    kext = self.kexts[index]
-                    if kext.checked and not kext.required:
-                        self.uncheck_kext(index)
+                kext = self.kexts[index]
+                if kext.checked and not kext.required:
+                    checked_dependents = [other_kext.name for other_kext in self.kexts if other_kext.checked and kext.name in other_kext.requires_kexts]
+                    self.uncheck_kext(index)
+                    if checked_dependents:
+                        messages.append("{} and dependent kext{} {} disabled.".format(kext.name, "s" if len(checked_dependents) > 1 else "", ", ".join(checked_dependents)))
+                else:
+                    status = self.get_kext_status(kext, macos_version)
+                    if status == "not_needed":
+                        messages.append("{} is not needed on {}.".format(kext.name, os_data.get_macos_name_by_darwin(macos_version)))
+                        continue
+                    if status == "requires_newer":
+                        messages.append("{} requires a newer macOS version.".format(kext.name))
+                        continue
+
+                    conflicts = [other_kext.name for other_kext in self.kexts if other_kext.checked and kext.conflict_group_id and other_kext.conflict_group_id == kext.conflict_group_id and other_kext.name != kext.name]
+                    if self.check_kext(index, macos_version, kext.name in force_load_kexts):
+                        if conflicts:
+                            messages.append("{} selected; mutually exclusive kext{} disabled: {}.".format(kext.name, "s" if len(conflicts) > 1 else "", ", ".join(conflicts)))
                     else:
-                        self.check_kext(index, macos_version, allow_unsupported_kexts)
+                        messages.append("{} could not be selected because a required dependency is unavailable.".format(kext.name))
